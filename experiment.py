@@ -8,6 +8,11 @@ from utils import *
 
 @gin.configurable
 class Experiment:
+    '''
+    Train for a specified number of epochs, while intermittently saving checkpoints and keeping track of the optimal
+    weights with respect to validation performance. At the end of training, load the optimal weights and perform inference
+    on the test set.
+    '''
     def __init__(self, save_path, seed, dataset, arch, num_epochs, batch_size, lr, wd, val_interval, checkpoint_interval,
                  is_resume=False):
         self.save_path = save_path
@@ -35,6 +40,9 @@ class Experiment:
             raise NotImplementedError
 
     def save_checkpoint(self):
+        '''
+        Save the current state.
+        '''
         checkpoint = {
             'random_state_np': np.random.get_state(),
             'random_state_pt': torch.get_rng_state(),
@@ -46,6 +54,9 @@ class Experiment:
         save_file(checkpoint, os.path.join(self.save_path, 'checkpoint.pkl'))
 
     def load_checkpoint(self):
+        '''
+        Load a previously saved state.
+        '''
         print('Loading checkpoint')
         checkpoint = load_file(os.path.join(self.save_path, 'checkpoint.pkl'))
         np.random.set_state(checkpoint['random_state_np'])
@@ -57,6 +68,9 @@ class Experiment:
         self.epoch = checkpoint['epoch']
 
     def to_summary_str(self, loss, acc):
+        '''
+        Return the loss and accuracy in a readable format.
+        '''
         return '{}, {}, {:.6f}, {:.1f}%'.format(
             get_time(),
             self.epoch,
@@ -64,6 +78,9 @@ class Experiment:
             100 * acc)
 
     def train_epoch(self):
+        '''
+        Train for a single epoch.
+        '''
         train_loss = train_acc = 0
         self.net.train()
         for x, y in self.train_data:
@@ -81,6 +98,9 @@ class Experiment:
         return train_loss / len(self.train_data.dataset), train_acc / len(self.train_data.dataset)
 
     def inference(self, is_val):
+        '''
+        Perform inference on the validation or test set.
+        '''
         inference_data = self.val_data if is_val else self.test_data
         loss = acc = 0
         self.net.eval()
@@ -95,6 +115,9 @@ class Experiment:
         return loss, acc
 
     def run(self):
+        '''
+        See the constructor docstring.
+        '''
         for epoch in range(self.epoch, self.num_epochs):
             train_loss, train_acc = self.train_epoch()
             self.scheduler.step(epoch)

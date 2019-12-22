@@ -7,7 +7,7 @@ from utils import *
 
 class PILDataset(Dataset):
     '''
-    x is PIL, y is tensor
+    x is PIL, y is tensor.
     '''
     def __init__(self, x, y, transformations):
         self.x = x

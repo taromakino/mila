@@ -6,6 +6,9 @@ import random
 import torch
 
 def set_seed(seed):
+    '''
+    Ensure reproducibility.
+    '''
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
     torch.manual_seed(seed)
