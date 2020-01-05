@@ -1,9 +1,10 @@
 Experiment.seed = 0
 Experiment.dataset = "cifar10"
-Experiment.arch = "wrn"
+Experiment.arch_class = @WideResNet
+Experiment.arch_kwargs = {'depth': 40, 'widen_factor': 2, 'num_classes': 10, 'stride': 1}
+Experiment.optimizer_class = @Adam
+Experiment.optimizer_kwargs = {'lr': 1e-3, 'weight_decay': 5e-4}
 Experiment.num_epochs = 100
 Experiment.batch_size = 100
-Experiment.lr = 0.1
-Experiment.wd = 5e-4
 Experiment.val_interval = 10
 Experiment.checkpoint_interval = 10

@@ -27,7 +27,7 @@ def save_cifar10(train_ratio=0.8):
     Since CIFAR-10 doesn't come with a validation set, create one here and save the arrays to disk.
     '''
     print('Saving cifar10')
-    trainval_dataset = CIFAR10(os.environ['DATA_PATH'], train=True)
+    trainval_dataset = CIFAR10(os.environ['DATA_PATH'], train=True, download=True)
     x_trainval, y_trainval = [], []
     for x, y in trainval_dataset:
         x_trainval.append(x)

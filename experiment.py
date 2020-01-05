@@ -4,7 +4,12 @@ import sys
 from copy import deepcopy
 from data import get_data
 from nets.wrn import *
+from torch.optim import Adam, SGD
 from utils import *
+
+gin.external_configurable(WideResNet)
+gin.external_configurable(Adam)
+gin.external_configurable(SGD)
 
 @gin.configurable
 class Experiment:
@@ -13,8 +18,8 @@ class Experiment:
     weights with respect to validation performance. At the end of training, load the optimal weights and perform inference
     on the test set.
     '''
-    def __init__(self, save_path, seed, dataset, arch, num_epochs, batch_size, lr, wd, val_interval, checkpoint_interval,
-                 is_resume=False):
+    def __init__(self, save_path, seed, dataset, arch_class, arch_kwargs, optimizer_class, optimizer_kwargs, num_epochs,
+                 batch_size, val_interval, checkpoint_interval, is_resume=False):
         self.save_path = save_path
         self.num_epochs = num_epochs
         self.val_interval = val_interval
@@ -22,9 +27,9 @@ class Experiment:
         set_seed(seed)
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.train_data, self.val_data, self.test_data = get_data(dataset, batch_size)
-        self.net = self.get_net(arch)
-        self.optimizer = torch.optim.SGD(self.net.parameters(), lr=lr, momentum=0.9, weight_decay=wd)
-        self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, num_epochs, eta_min=lr * 1e-3)
+        self.net = arch_class(**arch_kwargs)
+        self.optimizer = optimizer_class(self.net.parameters(), **optimizer_kwargs)
+        self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, num_epochs, eta_min=optimizer_kwargs['lr'] * 1e-3)
         self.optimal_val_acc = -np.Inf
         self.optimal_weights = deepcopy(self.net.state_dict())
         if is_resume:
@@ -32,12 +37,6 @@ class Experiment:
         else:
             os.makedirs(save_path)
             self.epoch = 0
-
-    def get_net(self, arch):
-        if arch =='wrn':
-            return WideResNet(40, 2, 10, 1).to(self.device)
-        else:
-            raise NotImplementedError
 
     def save_checkpoint(self):
         '''
