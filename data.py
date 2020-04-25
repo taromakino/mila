@@ -17,7 +17,7 @@ class PILDataset(Dataset):
     def __getitem__(self, idx):
         x, y = self.x[idx], self.y[idx]
         x = self.transformations(x)
-        return x, y
+        return x, y, idx
 
     def __len__(self):
         return len(self.x)

@@ -1,4 +1,6 @@
+Experiment.save_dpath = 'results'
 Experiment.seed = 0
+Experiment.stages = ['train', 'val', 'test']
 Experiment.dataset = "cifar10"
 Experiment.arch_class = @WideResNet
 Experiment.arch_kwargs = {'depth': 40, 'widen_factor': 2, 'num_classes': 10, 'stride': 1}
@@ -6,5 +8,5 @@ Experiment.optimizer_class = @Adam
 Experiment.optimizer_kwargs = {'lr': 1e-3, 'weight_decay': 5e-4}
 Experiment.num_epochs = 100
 Experiment.batch_size = 100
-Experiment.val_interval = 10
-Experiment.checkpoint_interval = 10
+Experiment.initial_weights_fpath = None
+Experiment.resuming = False

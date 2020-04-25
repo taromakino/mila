@@ -18,24 +18,37 @@ class Experiment:
     weights with respect to validation performance. At the end of training, load the optimal weights and perform inference
     on the test set.
     '''
-    def __init__(self, save_path, seed, dataset, arch_class, arch_kwargs, optimizer_class, optimizer_kwargs, num_epochs,
-                 batch_size, val_interval, checkpoint_interval, is_resume=False):
-        self.save_path = save_path
-        self.num_epochs = num_epochs
-        self.val_interval = val_interval
-        self.checkpoint_interval = checkpoint_interval
+    def __init__(self,
+                 save_dpath,
+                 seed,
+                 stages,
+                 dataset,
+                 arch_class,
+                 arch_kwargs,
+                 optimizer_class,
+                 optimizer_kwargs,
+                 num_epochs,
+                 batch_size,
+                 initial_weights_fpath,
+                 resuming):
+        self.save_dpath = save_dpath
         set_seed(seed)
+        self.stages = stages
+        self.num_epochs = num_epochs
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.train_data, self.val_data, self.test_data = get_data(dataset, batch_size)
         self.net = arch_class(**arch_kwargs)
+        if initial_weights_fpath is not None:
+            self.net.load_state_dict(torch.load(initial_weights_fpath))
+        self.net.to(self.device)
         self.optimizer = optimizer_class(self.net.parameters(), **optimizer_kwargs)
         self.scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(self.optimizer, num_epochs, eta_min=optimizer_kwargs['lr'] * 1e-3)
         self.optimal_val_acc = -np.Inf
         self.optimal_weights = deepcopy(self.net.state_dict())
-        if is_resume:
+        if resuming:
             self.load_checkpoint()
         else:
-            os.makedirs(save_path)
+            os.makedirs(save_dpath)
             self.epoch = 0
 
     def save_checkpoint(self):
@@ -50,14 +63,14 @@ class Experiment:
             'optimizer_state': self.optimizer.state_dict(),
             'scheduler_state': self.scheduler.state_dict(),
             'epoch': self.epoch}
-        save_file(checkpoint, os.path.join(self.save_path, 'checkpoint.pkl'))
+        save_file(checkpoint, os.path.join(self.save_dpath, 'checkpoint.pkl'))
 
     def load_checkpoint(self):
         '''
         Load a previously saved state.
         '''
         print('Loading checkpoint')
-        checkpoint = load_file(os.path.join(self.save_path, 'checkpoint.pkl'))
+        checkpoint = load_file(os.path.join(self.save_dpath, 'checkpoint.pkl'))
         np.random.set_state(checkpoint['random_state_np'])
         torch.set_rng_state(checkpoint['random_state_pt'])
         random.setstate(checkpoint['random_state'])
@@ -82,7 +95,7 @@ class Experiment:
         '''
         train_loss = train_acc = 0
         self.net.train()
-        for x, y in self.train_data:
+        for x, y, idxs in self.train_data:
             # Forward prop
             x, y = x.to(self.device), y.to(self.device)
             logits = self.net(x)
@@ -102,13 +115,16 @@ class Experiment:
         '''
         inference_data = self.val_data if is_val else self.test_data
         loss = acc = 0
+        logits_all = np.full((len(inference_data.dataset), inference_data.dataset.y.max().item() + 1), np.nan)
         self.net.eval()
         with torch.no_grad():
-            for x, y in inference_data:
+            for x, y, idxs in inference_data:
                 x, y = x.to(self.device), y.to(self.device)
                 logits = self.net(x)
+                logits_all[idxs] = logits.cpu().numpy()
                 loss += F.cross_entropy(logits, y, reduction='sum').item()
                 acc += (logits.argmax(1) == y).sum().item()
+        save_file(logits_all, os.path.join(self.save_dpath, f"logits_{'val' if is_val else 'test'}.pkl"))
         loss /= len(inference_data.dataset)
         acc /= len(inference_data.dataset)
         return loss, acc
@@ -118,25 +134,24 @@ class Experiment:
         See the constructor docstring.
         '''
         for epoch in range(self.epoch, self.num_epochs):
-            train_loss, train_acc = self.train_epoch()
-            self.scheduler.step(epoch)
-            write(os.path.join(self.save_path, 'train_summary.txt'), self.to_summary_str(train_loss, train_acc))
-            self.epoch += 1
-            if self.epoch > 0 and self.epoch % self.val_interval == 0:
-                # Evaluate on validation set and store optimal weights
+            if 'train' in self.stages:
+                train_loss, train_acc = self.train_epoch()
+                self.scheduler.step(epoch)
+                write(os.path.join(self.save_dpath, 'train_summary.txt'), self.to_summary_str(train_loss, train_acc))
+                self.save_checkpoint()
+            if 'val' in self.stages:
                 val_loss, val_acc = self.inference(True)
-                write(os.path.join(self.save_path, 'val_summary.txt'), self.to_summary_str(val_loss, val_acc))
+                write(os.path.join(self.save_dpath, 'val_summary.txt'), self.to_summary_str(val_loss, val_acc))
                 if val_acc > self.optimal_val_acc:
                     self.optimal_weights = deepcopy(self.net.state_dict())
-            if self.epoch > 0 and self.epoch % self.checkpoint_interval == 0:
-                self.save_checkpoint()
+            self.epoch += 1
         self.save_checkpoint()
-        # At the end of training, load optimal weights and evaluate on test set
-        self.net.load_state_dict(self.optimal_weights)
-        test_loss, test_acc = self.inference(False)
-        write(os.path.join(self.save_path, 'test_summary.txt'), self.to_summary_str(test_loss, test_acc))
+        if 'test' in self.stages:
+            self.net.load_state_dict(self.optimal_weights)
+            test_loss, test_acc = self.inference(False)
+            write(os.path.join(self.save_dpath, 'test_summary.txt'), self.to_summary_str(test_loss, test_acc))
 
 if __name__ == '__main__':
-    config_path, save_path = sys.argv[1:]
+    config_path = sys.argv[-1]
     gin.parse_config_file(config_path)
-    Experiment(save_path).run()
+    Experiment().run()
