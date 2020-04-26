@@ -1,9 +1,9 @@
 Experiment.save_dpath = 'results'
 Experiment.seed = 0
 Experiment.stages = ['train', 'val', 'test']
-Experiment.dataset = @CIFAR10
+Experiment.dataset = @CIFAR100
 Experiment.arch_class = @WideResNet
-Experiment.arch_kwargs = {'depth': 40, 'widen_factor': 2, 'num_classes': 10, 'stride': 1}
+Experiment.arch_kwargs = {'depth': 40, 'widen_factor': 2, 'num_classes': 100, 'stride': 1}
 Experiment.optimizer_class = @Adam
 Experiment.optimizer_kwargs = {'lr': 1e-3, 'weight_decay': 5e-4}
 Experiment.num_epochs = 100

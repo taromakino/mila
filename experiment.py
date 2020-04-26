@@ -5,8 +5,11 @@ from copy import deepcopy
 from data import get_data
 from nets.wrn import *
 from torch.optim import Adam, SGD
+from torchvision.datasets import CIFAR10, CIFAR100
 from utils import *
 
+gin.external_configurable(CIFAR10)
+gin.external_configurable(CIFAR100)
 gin.external_configurable(WideResNet)
 gin.external_configurable(Adam)
 gin.external_configurable(SGD)
@@ -145,7 +148,9 @@ class Experiment:
                 if val_acc > self.optimal_val_acc:
                     self.optimal_weights = deepcopy(self.net.state_dict())
             self.epoch += 1
-        self.save_checkpoint()
+        if 'train' in self.stages:
+            self.save_checkpoint()
+            torch.save(self.optimal_weights, os.path.join(self.save_dpath, 'optimal_weights.pkl'))
         if 'test' in self.stages:
             self.net.load_state_dict(self.optimal_weights)
             test_loss, test_acc = self.inference(False)

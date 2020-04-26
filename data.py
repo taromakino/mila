@@ -1,9 +1,12 @@
+import gin
 import torchvision.transforms as transforms
 
 from PIL import Image
 from torch.utils.data import Dataset, DataLoader
-from torchvision.datasets import CIFAR10
+
 from utils import *
+
+
 
 class PILDataset(Dataset):
     '''
@@ -22,12 +25,12 @@ class PILDataset(Dataset):
     def __len__(self):
         return len(self.x)
 
-def save_cifar10(train_ratio=0.8):
+def save_dataset(dataset, train_ratio=0.8):
     '''
     Since CIFAR-10 doesn't come with a validation set, create one here and save the arrays to disk.
     '''
-    print('Saving cifar10')
-    trainval_dataset = CIFAR10(os.environ['DATA_PATH'], train=True, download=True)
+    print(f'Saving {dataset.__name__}')
+    trainval_dataset = dataset(os.environ['DATA_PATH'], train=True, download=True)
     x_trainval, y_trainval = [], []
     for x, y in trainval_dataset:
         x_trainval.append(x)
@@ -38,21 +41,22 @@ def save_cifar10(train_ratio=0.8):
     val_idxs = np.setdiff1d(np.arange(len(x_trainval)), train_idxs)
     x_train, y_train = x_trainval[train_idxs], y_trainval[train_idxs]
     x_val, y_val = x_trainval[val_idxs], y_trainval[val_idxs]
-    test_dataset = CIFAR10(os.environ['DATA_PATH'], train=False)
+    test_dataset = dataset(os.environ['DATA_PATH'], train=False)
     x_test, y_test = [], []
     for x, y in test_dataset:
         x_test.append(x)
         y_test.append(y)
     x_test, y_test = np.stack(x_test), np.stack(y_test)
-    save_file((x_train, y_train, x_val, y_val, x_test, y_test), os.path.join(os.environ['DATA_PATH'], 'cifar10.pkl'))
+    save_file((x_train, y_train, x_val, y_val, x_test, y_test), os.path.join(os.environ['DATA_PATH'],
+        f'{dataset.__name__}.pkl'))
 
-def get_cifar10(batch_size):
+def get_data(dataset, batch_size):
     '''
     Get dataloaders for train, validation, and test
     '''
-    fpath = os.path.join(os.environ['DATA_PATH'], 'cifar10.pkl')
+    fpath = os.path.join(os.environ['DATA_PATH'], f'{dataset.__name__}.pkl')
     if not os.path.exists(fpath):
-        save_cifar10()
+        save_dataset(dataset)
     x_train, y_train, x_val, y_val, x_test, y_test = load_file(fpath)
     # Train
     x_train = [Image.fromarray(elem) for elem in x_train]
@@ -74,9 +78,3 @@ def get_cifar10(batch_size):
     test_dataset = PILDataset(x_test, y_test, transforms.ToTensor())
     test_data = DataLoader(test_dataset, batch_size=batch_size)
     return train_data, val_data, test_data
-
-def get_data(dataset, batch_size):
-    if dataset == 'cifar10':
-        return get_cifar10(batch_size)
-    else:
-        raise NotImplementedError
