@@ -119,15 +119,18 @@ class Experiment:
         inference_data = self.val_data if is_val else self.test_data
         loss = acc = 0
         logits_all = np.full((len(inference_data.dataset), inference_data.dataset.y.max().item() + 1), np.nan)
+        y_all = np.full(len(inference_data.dataset), np.nan)
         self.net.eval()
         with torch.no_grad():
             for x, y, idxs in inference_data:
                 x, y = x.to(self.device), y.to(self.device)
+                y_all[idxs] = y.cpu().numpy()
                 logits = self.net(x)
                 logits_all[idxs] = logits.cpu().numpy()
                 loss += F.cross_entropy(logits, y, reduction='sum').item()
                 acc += (logits.argmax(1) == y).sum().item()
         save_file(logits_all, os.path.join(self.save_dpath, f"logits_{'val' if is_val else 'test'}.pkl"))
+        save_file(y_all, os.path.join(self.save_dpath, f"y_{'val' if is_val else 'test'}.pkl"))
         loss /= len(inference_data.dataset)
         acc /= len(inference_data.dataset)
         return loss, acc

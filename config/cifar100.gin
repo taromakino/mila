@@ -1,4 +1,4 @@
-Experiment.save_dpath = 'results'
+Experiment.save_dpath = 'results/cifar100'
 Experiment.seed = 0
 Experiment.stages = ['train', 'val', 'test']
 Experiment.dataset = @CIFAR100
